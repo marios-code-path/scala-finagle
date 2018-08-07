@@ -7,3 +7,24 @@ toc = true
 categories = ["scala","twitter","finagle"]
 tags = ["functional","scala","services","demo"]
 +++
+# Standing up HTTP/RPC services with Twitter/Finagle API
+
+## Why Finagle
+
+### Its Functional == fn(x)
+
+### Scala is JVM
+
+## Build tools
+
+### SBT
+
+### Maybe Gradle
+
+## Code
+
+### A Simple HTTP Service
+
+### A Simple HTTP Client
+
+## Conclusion
