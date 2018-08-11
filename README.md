@@ -17,24 +17,48 @@ tags = ["functional","scala","services","demo"]
 
 Finagle is written in Scala, and works best in applications - scala or java - that want to take the [functional services](https://monkey.org/~marius/funsrv.pdf) approach. You can prefer to choose ordinary Java or some other JVM language.
 
-### SBT
+### Build Dependencies
 
-We will highlight two important building blocks for our Services to use: [Flags](https://twitter.github.io/finatra/user-guide/getting-started/flags.html), [Modules](https://twitter.github.io/finatra/user-guide/getting-started/modules.html)
+We will highlight two important building blocks for our Services to use: [Flags](https://twitter.github.io/finatra/user-guide/getting-started/flags.html), and [Modules](https://twitter.github.io/finatra/user-guide/getting-started/modules.html). To enable both, use the following dependencies in your `build.sbt`
 
 ```c
 name := "quickstart"
 version := "1.0"
 libraryDependencies += "com.twitter" %% "finagle-http" % "18.8.0"
-
+libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
 ```
-
-### Maybe Gradle
 
 ## Code
 
+Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. Our class creates a `modules` override member that we use to place a [Module]() in order to receive it's injected componenets ( like @Bean's in Spring ). We review `Modules` in depth later.  For now, we will accept that our module gives us this instance of a MyService [Service]() implementation.
+
+In order to start the server, use Http.serve and give it it's INetAddr assignment, and service delegate. This one line will launch asynchronously and TwitterServer does the job of thread pool management. THus we didnt need to explicitly [Await]() the completion of this server. Since this is true, we have a convenient way to handle lifecycle events throught handles such as onExit().
+
+```scala
+    package example
+
+    import com.twitter.finagle.Http
+    import com.twitter.inject.server.TwitterServer
+
+    object FinagleAppMain extends FinagleApp
+
+    class FinagleApp extends TwitterServer {
+    override val modules = Seq(MyModule)
+
+    override protected def start(): Unit = {
+        val service = injector.instance[MyService]
+        val server = Http.serve(":8080", service)
+        onExit {
+        server.close()
+        }
+    }
+
+    }
+```
+
 ### A Simple HTTP Service
 
-```java
+```scala
 class MyService(showMinimum: Boolean) extends Service[http.Request, http.Response] {
 
   val seed = Seq(42, 75, 29, 64, 88)
