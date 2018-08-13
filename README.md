@@ -28,9 +28,39 @@ libraryDependencies += "com.twitter" %% "finagle-http" % "18.8.0"
 libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
 ```
 
-## Code
+## A Simple Finagle HTTP Service
 
-Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. TwitterServer does much of the work to intercept the lifecycle of your objects, and exposes ways to get at them with them with a simple convententional API.
+Finagle is a protocol agnostic RPC system that by itself will allow you to create any asynchronous service contract that has both an input type, and output type. A generic Finagle service uses the [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) trait to expose asynchronous service  functionality. We can learn more about service creation by implementing our own Finagle HTTP service.
+
+Finagle provides HTTP service interoperability by way of `com.twitter.finagle.Http` object. We will construct a simple service that receives `http.Request` and responds with `http.Response`. 
+
+```scala
+import com.twitter.finagle.http.{Response, Status}
+import com.twitter.finagle.{Service, http}
+import com.twitter.util.Future
+
+class MyService(showMinimum: Boolean) extends Service[http.Request, http.Response] {
+  
+  val seed = Seq(76, 69, 71, 48, 83, 42)
+
+  def apply(req: http.Request): Future[http.Response] = {
+    val response = Response(req.version, Status.Ok)
+    val sample = if (showMinimum) seed.min else seed.max
+    val string = if (showMinimum) "Minimum" else "Maximum"
+
+    response.setContentString(s"${string} target sample is: ${sample}")
+
+    Future.value(
+      response
+    )
+  }
+
+}
+```
+
+## Harnessing TwitterServer
+
+Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. TwitterServer does much of the work to intercept the lifecycle of your objects, and exposes ways to get at them withthem with a simple convententional API.
 
 Our class creates a `modules` override member that we use to place a [Module]() in order to receive it's injected componenets ( like @Bean's in Spring ). We review `Modules` in depth later.  For now, we will accept that our module gives us this instance of a MyService [Service]() implementation. Because we're using a TwtiterServer class, we can access it's field members such as `injector` which I use to provide the configured `MyService` class.
 
@@ -58,27 +88,6 @@ In order to start the server, use Http.serve and give it it's InetAddr assignmen
     }
 ```
 
-### A Simple HTTP Service
-
-```scala
-class MyService(showMinimum: Boolean) extends Service[http.Request, http.Response] {
-
-  val seed = Seq(42, 75, 29, 64, 88)
-
-  def apply(req: http.Request): Future[http.Response] = {
-    val response = Response(req.version, Status.Ok)
-    val sample = if (showMinimum) seed.min else seed.max
-    val string = if (showMinimum) "Minimum" else "Maximum"
-
-    response.setContentString(s"${string} sample is: ${sample}")
-
-    Future.value(
-      response
-    )
-  }
-
-}
-```
 
 ### A Simple HTTP Client
 
@@ -92,10 +101,7 @@ class MyService(showMinimum: Boolean) extends Service[http.Request, http.Respons
 
 * http://anrg.usc.edu/www/papers/IPSN10_Moeller_Sridharan_Krishnamachari_Gnawali.pdf
 
-### Another False Math Proof
+### Gutfrage's Finagle Docs
 
-* https://www.math.hmc.edu/funfacts/ffiles/10001.1-8.shtml
+* https://gutefrage.github.io/the-finagle-docs/
 
-### Services for scala.
-
-*

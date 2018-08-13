@@ -6,7 +6,7 @@ import com.twitter.util.Future
 
 class MyService(showMinimum: Boolean) extends Service[http.Request, http.Response] {
 
-  val seed = Seq(42, 75, 29, 64, 88)
+  val seed = Seq(76, 69, 71, 48, 83, 42)
 
   def apply(req: http.Request): Future[http.Response] = {
     val response = Response(req.version, Status.Ok)
