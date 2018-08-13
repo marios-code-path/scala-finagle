@@ -19,10 +19,10 @@ Finagle is written in Scala, and works best in applications - scala or java - th
 
 ### Build Dependencies
 
-We will highlight two important building blocks for our Services to use: [Flags](https://twitter.github.io/finatra/user-guide/getting-started/flags.html), and [Modules](https://twitter.github.io/finatra/user-guide/getting-started/modules.html). To enable both, use the following dependencies in your `build.sbt`
+We will highlight two important building blocks for our Services to use: [Flags](https://twitter.github.io/finatra/user-guide/getting-started/flags.html), and [Modules](https://twitter.github.io/finatra/user-guide/getting-started/modules.html). To enable Modules, include `inject-server` as a dependency in your build.
 
 ```c
-name := "quickstart"
+name := "example-service"
 version := "1.0"
 libraryDependencies += "com.twitter" %% "finagle-http" % "18.8.0"
 libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
@@ -30,9 +30,11 @@ libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
 
 ## Code
 
-Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. Our class creates a `modules` override member that we use to place a [Module]() in order to receive it's injected componenets ( like @Bean's in Spring ). We review `Modules` in depth later.  For now, we will accept that our module gives us this instance of a MyService [Service]() implementation.
+Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. TwitterServer does much of the work to intercept the lifecycle of your objects, and exposes ways to get at them with them with a simple convententional API.
 
-In order to start the server, use Http.serve and give it it's INetAddr assignment, and service delegate. This one line will launch asynchronously and TwitterServer does the job of thread pool management. THus we didnt need to explicitly [Await]() the completion of this server. Since this is true, we have a convenient way to handle lifecycle events throught handles such as onExit().
+Our class creates a `modules` override member that we use to place a [Module]() in order to receive it's injected componenets ( like @Bean's in Spring ). We review `Modules` in depth later.  For now, we will accept that our module gives us this instance of a MyService [Service]() implementation. Because we're using a TwtiterServer class, we can access it's field members such as `injector` which I use to provide the configured `MyService` class.
+
+In order to start the server, use Http.serve and give it it's InetAddr assignment, and service delegate. This one line will launch asynchronously and TwitterServer does the job of thread pool management. Thus we didnt need to explicitly [Await]() the completion of this server. Since this is true, 
 
 ```scala
     package example
