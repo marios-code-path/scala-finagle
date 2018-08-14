@@ -1,19 +1,18 @@
 package example
 
 import com.twitter.finagle.Http
-import com.twitter.inject.server.TwitterServer
+import com.twitter.finagle.stats.SummarizingStatsReceiver
+import com.twitter.util.{Await, Duration}
 
-object FinagleAppMain extends FinagleApp
+object FinagleApp extends App {
 
-class FinagleApp extends TwitterServer {
-  override val modules = Seq(MyModule)
+  object SummaryStatsReceiver extends SummarizingStatsReceiver
 
-  override protected def start(): Unit = {
-    val service = injector.instance[MyService]
-    val server = Http.serve(":8080", service)
-    onExit {
-      server.close()
-    }
-  }
+  val server = Http.server
+    .withRequestTimeout(Duration.fromSeconds(30))
+    .withStatsReceiver(SummaryStatsReceiver)
+    .withLabel("example")
+    .serve(addr = ":8080", service = new MyService(true))
 
+  Await.ready(server)
 }

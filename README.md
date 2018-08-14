@@ -30,9 +30,9 @@ libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
 
 ## A Simple Finagle HTTP Service
 
-Finagle is a protocol agnostic RPC system that by itself will allow you to create any asynchronous service contract that has both an input type, and output type. A generic Finagle service uses the [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) trait to expose asynchronous service  functionality. We can learn more about service creation by implementing our own Finagle HTTP service.
+Finagle lets you develop services with configuration in mind. You may stand up a single HTTP server by extending the base trait [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) and specifying your Input and Output types in generic form. To see this in action, we will demonstrate HTTP service by constructing a simple `Service[http.Request, http.Response]`.
 
-Finagle provides HTTP service interoperability by way of `com.twitter.finagle.Http` object. We will construct a simple service that receives `http.Request` and responds with `http.Response`. 
+A generic Finagle service uses the [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) trait to expose service functionality such that any Service[Req, Res] `A` may consume `Req`, and respond with `Res`. This can be seen in the sample code below, where we use [http.Request](http://www.github.com/) and `http.Response` as the input/output types. Because Finagle is an [RPC](http://link-to-some-rpc-doc) system, we must implement the `apply(Req): Future[Res]` methods where the response is a [Future](http://Future) of the returned `http.Response`.
 
 ```scala
 import com.twitter.finagle.http.{Response, Status}
@@ -58,34 +58,46 @@ class MyService(showMinimum: Boolean) extends Service[http.Request, http.Respons
 }
 ```
 
+## Finagle HTTP Server
+
+At it's most basic and simplest form, Twitter/Finagle allows us to define our [Server](http://twitter-finagle-server) through the same `Req` / `Res` input/output types we defined in our Service./
+Finagle comes pre-packaged with a couple protocol-specific servers that we could use to harness our Service's functionality. We will observe Finagle [Http](http://twitter-finagle-http) server capabilities, and how to configure and start the server.
+
+```scala
+import com.twitter.finagle.Http
+import com.twitter.finagle.stats.NullStatsReceiver
+import com.twitter.finagle.tracing.NullTracer
+import com.twitter.util.Await
+
+object FinagleApp extends App {
+  
+  val server = Http.server
+    .withStatsReceiver(NullStatsReceiver)
+    .withLabel("example")
+    .serve(addr = ":8080", service = new MyService(true))
+
+  Await.ready(server)
+}
+```
+
+### Stacks
+
+Finagle uses a pattern called `stacking`.  We configure with `Http.server` followed by configuration methods. In this example, we re-use safe defaults for the Http Implementation - namely Netty 4, s
+
+
 ## Harnessing TwitterServer
 
 Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. TwitterServer does much of the work to intercept the lifecycle of your objects, and exposes ways to get at them withthem with a simple convententional API.
 
 Our class creates a `modules` override member that we use to place a [Module]() in order to receive it's injected componenets ( like @Bean's in Spring ). We review `Modules` in depth later.  For now, we will accept that our module gives us this instance of a MyService [Service]() implementation. Because we're using a TwtiterServer class, we can access it's field members such as `injector` which I use to provide the configured `MyService` class.
 
-In order to start the server, use Http.serve and give it it's InetAddr assignment, and service delegate. This one line will launch asynchronously and TwitterServer does the job of thread pool management. Thus we didnt need to explicitly [Await]() the completion of this server. Since this is true, 
-
 ```scala
-    package example
+class SimpleApp extends App {
+  val service = new MyService(true)
+  val server = Http.serve(":8080", service)
 
-    import com.twitter.finagle.Http
-    import com.twitter.inject.server.TwitterServer
-
-    object FinagleAppMain extends FinagleApp
-
-    class FinagleApp extends TwitterServer {
-    override val modules = Seq(MyModule)
-
-    override protected def start(): Unit = {
-        val service = injector.instance[MyService]
-        val server = Http.serve(":8080", service)
-        onExit {
-        server.close()
-        }
-    }
-
-    }
+  Await.ready(server)
+}
 ```
 
 
@@ -104,4 +116,3 @@ In order to start the server, use Http.serve and give it it's InetAddr assignmen
 ### Gutfrage's Finagle Docs
 
 * https://gutefrage.github.io/the-finagle-docs/
-
