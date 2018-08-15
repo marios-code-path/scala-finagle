@@ -28,9 +28,9 @@ libraryDependencies += "com.twitter" %% "finagle-http" % "18.8.0"
 libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
 ```
 
-## A Simple Finagle HTTP Service
+## Quick Finagle HTTP Service
 
-Finagle lets you develop services with configuration in mind. You may stand up a single HTTP server by extending the base trait [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) and specifying your Input and Output types in generic form. To see this in action, we will demonstrate HTTP service by constructing a simple `Service[http.Request, http.Response]`.
+Finagle lets you develop services with configuration in mind. You may stand up a single HTTP server by extending the base trait [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) and specifying your `Req` and `Res` types in generic form. To see this in action, we will demonstrate HTTP service by constructing a simple `Service[http.Request, http.Response]`.
 
 A generic Finagle service uses the [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) trait to expose service functionality such that any Service[Req, Res] `A` may consume `Req`, and respond with `Res`. This can be seen in the sample code below, where we use [http.Request](http://www.github.com/) and `http.Response` as the input/output types. Because Finagle is an [RPC](http://link-to-some-rpc-doc) system, we must implement the `apply(Req): Future[Res]` methods where the response is a [Future](http://Future) of the returned `http.Response`.
 
@@ -58,32 +58,78 @@ class MyService(showMinimum: Boolean) extends Service[http.Request, http.Respons
 }
 ```
 
+### Wrapping Services with Filters
+
+Filters in Finagle allow us to transform a service's output. For example through the Twitter docs, a brief defintion Filter traits should suffice in this example.
+
+```java
+ * A [[Filter]] acts as a decorator/transformer of a [[Service service]].
+ * It may apply transformations to the input and output of that service:
+ * {{{
+ *           (*  MyService  *)
+ * [ReqIn -> (ReqOut -> RepIn) -> RepOut]
+ * }}}
+```
+
+Given a Service provides the translation between two types `ReqOut` and `ReqIn`, our Filter allows us to `decorate` this service with additional input/output types, thus `ReqIn` and `RepOut`. Filters extend the [Service]() trait and include additional compositional method `andThen` (we will see later) that lets us stack filters and services.
+
+For now, we can define our example filter to execute an anonymous lambda provided by in the constructor, then have it proceed with servicing the request.
+
+```scala
+package example
+
+import com.twitter.finagle.{Service, SimpleFilter}
+import com.twitter.finagle.http.{Request, Response}
+import com.twitter.util.Future
+
+class ExampleFilter(myFn: Unit => Unit) extends SimpleFilter[Request, Response] {
+  override def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
+    myFn()
+    service(request)
+  }
+}
+```
+
 ## Finagle HTTP Server
 
-At it's most basic and simplest form, Twitter/Finagle allows us to define our [Server](http://twitter-finagle-server) through the same `Req` / `Res` input/output types we defined in our Service./
+Twitter/Finagle allows us to define our [Server](http://twitter-finagle-server) through the same `Req` / `Res` input/output types we defined in our Service./
 Finagle comes pre-packaged with a couple protocol-specific servers that we could use to harness our Service's functionality. We will observe Finagle [Http](http://twitter-finagle-http) server capabilities, and how to configure and start the server.
 
 ```scala
-import com.twitter.finagle.Http
-import com.twitter.finagle.stats.NullStatsReceiver
-import com.twitter.finagle.tracing.NullTracer
-import com.twitter.util.Await
+import com.twitter.finagle.{Http, Service}
+import com.twitter.finagle.http.{Request, Response}
+import com.twitter.finagle.stats.SummarizingStatsReceiver
+import com.twitter.util.{Await, Duration}
+
+object SummaryStatsReceiver extends SummarizingStatsReceiver
 
 object FinagleApp extends App {
-  
+
+  val service: Service[Request, Response] = new ExampleFilter(_ =>
+    SummaryStatsReceiver
+      .scope("example").counter("filtered_requests").incr()
+  ).andThen(new MyService(true))
+
   val server = Http.server
-    .withStatsReceiver(NullStatsReceiver)
+    .withRequestTimeout(Duration.fromSeconds(30))
+    .withStatsReceiver(SummaryStatsReceiver)
+    .withHttpStats
     .withLabel("example")
-    .serve(addr = ":8080", service = new MyService(true))
+    .serve(addr = ":8080", service)
+
+  sys.addShutdownHook(
+    SummaryStatsReceiver.print()
+  )
 
   Await.ready(server)
 }
 ```
+In this (basic) example, our service responds to all HTTP URI's on our localhost Server. The configuration of the S
 
-### Stacks
 
-Finagle uses a pattern called `stacking`.  We configure with `Http.server` followed by configuration methods. In this example, we re-use safe defaults for the Http Implementation - namely Netty 4, s
+### Filters and Services
 
+Composing a filtered HTTP service with Finagle is actually quite simple.  
 
 ## Harnessing TwitterServer
 
@@ -99,9 +145,11 @@ class SimpleApp extends App {
   Await.ready(server)
 }
 ```
+# unit test
 
 
-### A Simple HTTP Client
+
+### Test with Client
 
 ## Conclusion & Links
 

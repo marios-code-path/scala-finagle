@@ -4,7 +4,10 @@ import com.twitter.finagle.http.{Response, Status}
 import com.twitter.finagle.{Service, http}
 import com.twitter.util.Future
 
-class MyService(showMinimum: Boolean) extends Service[http.Request, http.Response] {
+object MaximumService extends MyService(false)
+object MinimumService extends MyService(true)
+
+class MyService(val showMinimum: Boolean) extends Service[http.Request, http.Response] {
 
   val seed = Seq(76, 69, 71, 48, 83, 42)
 
@@ -12,7 +15,6 @@ class MyService(showMinimum: Boolean) extends Service[http.Request, http.Respons
     val response = Response(req.version, Status.Ok)
     val sample = if (showMinimum) seed.min else seed.max
     val string = if (showMinimum) "Minimum" else "Maximum"
-
     response.setContentString(s"${string} target sample is: ${sample}")
 
     Future.value(
