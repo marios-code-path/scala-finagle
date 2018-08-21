@@ -1,7 +1,7 @@
 +++
 date = 2018-07-30
 publishDate = 2018-08-04
-title = "Intro to Finagle services with Scala and Gradle."
+title = "Intro to Finagle services with Scala and SBT."
 description = "Finagle lets you develop and deploy services easily."
 toc = true
 categories = ["scala","twitter","finagle"]
@@ -19,20 +19,19 @@ Finagle is written in Scala, and works best in applications - scala or java - th
 
 ### Build Dependencies
 
-We will highlight two important building blocks for our Services to use: [Flags](https://twitter.github.io/finatra/user-guide/getting-started/flags.html), and [Modules](https://twitter.github.io/finatra/user-guide/getting-started/modules.html). To enable Modules, include `inject-server` as a dependency in your build.
+We will highlight two important building blocks for our Services to use: [Service](https://service.html), [Filters](https://twitter.github.io/ffilters) and [StatsReceivers](http://stats-receivers). To enable just these basic components, add 'finagle-http' to your build as seen below.
 
 ```c
 name := "example-service"
 version := "1.0"
 libraryDependencies += "com.twitter" %% "finagle-http" % "18.8.0"
-libraryDependencies += "com.twitter" %% "inject-server" % "18.8.0"
 ```
 
 ## Quick Finagle HTTP Service
 
-Finagle lets you develop services with configuration in mind. You may stand up a single HTTP server by extending the base trait [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) and specifying your `Req` and `Res` types in generic form. To see this in action, we will demonstrate HTTP service by constructing a simple `Service[http.Request, http.Response]`.
+Finagle lets you develop services in a conventional, programatic and functional way. You may stand up a single HTTP server by extending the base trait [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) and specifying your `Req` and `Res` types in generic form. To see this in action, we will demonstrate HTTP service by constructing a simple `Service[http.Request, http.Response]`.
 
-A generic Finagle service uses the [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) trait to expose service functionality such that any Service[Req, Res] `A` may consume `Req`, and respond with `Res`. This can be seen in the sample code below, where we use [http.Request](http://www.github.com/) and `http.Response` as the input/output types. Because Finagle is an [RPC](http://link-to-some-rpc-doc) system, we must implement the `apply(Req): Future[Res]` methods where the response is a [Future](http://Future) of the returned `http.Response`.
+A generic Finagle service uses the [Service](https://twitter.github.io/finagle/guide/ServicesAndFilters.html) trait to expose service functionality such that any Service[Req, Res] `A` may consume `Req`, and respond with `Res`. This can be seen in the sample code below, where we use [http.Request](http://www.github.com/) and `http.Response` as the input/output types. Because Finagle is an [RPC](http://link-to-some-rpc-doc) system, we must implement the `apply(Req): Future[Res]` methods where the response is a [Future](http://Future) of the returned `res` type `http.Response`.
 
 ```scala
 import com.twitter.finagle.http.{Response, Status}
@@ -60,7 +59,7 @@ class MyService(showMinimum: Boolean) extends Service[http.Request, http.Respons
 
 ### Wrapping Services with Filters
 
-Filters in Finagle allow us to transform a service's output. For example through the Twitter docs, a brief defintion Filter traits should suffice in this example.
+ Filters lets us change the input and output types for a given service, wrap service logic (eg with logging) and even simplify the relationship between a services configured states through composition. Lets see what Twitter docs say about Filters:
 
 ```java
  * A [[Filter]] acts as a decorator/transformer of a [[Service service]].
@@ -71,9 +70,9 @@ Filters in Finagle allow us to transform a service's output. For example through
  * }}}
 ```
 
-Given a Service provides the translation between two types `ReqOut` and `ReqIn`, our Filter allows us to `decorate` this service with additional input/output types, thus `ReqIn` and `RepOut`. Filters extend the [Service]() trait and include additional compositional method `andThen` (we will see later) that lets us stack filters and services.
+Given a `Service` provides the translation between two types `ReqOut` and `ReqIn`, a `Filter` allows turn those types into new invariant types, thus `ReqIn` and `RepOut`. Filters maintain API consistency with ordinary `Service`s through [Service]() trait, with that we also get an overloaded compositional method `andThen()` that allows us to glue together filters and services.
 
-For now, we can define our example filter to execute an anonymous lambda provided by in the constructor, then have it proceed with servicing the request.
+For now, we can define our example filter to execute an anonymous lambda provided by in the constructor, then proceed with servicing the request.
 
 ```scala
 package example
@@ -90,10 +89,12 @@ class ExampleFilter(myFn: Unit => Unit) extends SimpleFilter[Request, Response] 
 }
 ```
 
-## Finagle HTTP Server
+## The Finagle HTTP Server
 
 Twitter/Finagle allows us to define our [Server](http://twitter-finagle-server) through the same `Req` / `Res` input/output types we defined in our Service./
 Finagle comes pre-packaged with a couple protocol-specific servers that we could use to harness our Service's functionality. We will observe Finagle [Http](http://twitter-finagle-http) server capabilities, and how to configure and start the server.
+
+In this example, our `MyService` service responds to all HTTP URI's on our localhost Server instance. The Filters we provided ensure stats are counted towards all requests, and logs produced through the [LoggingFilter](http://logging-filter) filter.
 
 ```scala
 import com.twitter.finagle.{Http, Service}
@@ -124,36 +125,65 @@ object FinagleApp extends App {
   Await.ready(server)
 }
 ```
-In this (basic) example, our service responds to all HTTP URI's on our localhost Server. The configuration of the S
 
+### Statistics Gathering
 
-### Filters and Services
+A [StatsReceiver](http://stats-receivers) is useful for tracking performance and usage of our App. This example uses [SummarizingStatsReciever](http://summarizing-stats) to track a variety of statistics accross our service stack. In this example, we wired a stats receiver through The Server instance, and turned HTTP statistics gathering via the `withHttpStats` toggle. This configuration will enable the collection of multiple HTTP metrics.
 
-Composing a filtered HTTP service with Finagle is actually quite simple.  
+Serving to individualize our Service among other service statistics is the `withLabel()` method. This simply labels the root prefix for our particular service, such that it can be identified when reading statistics of a (for example) multi-tenant Server.
 
-## Harnessing TwitterServer
+We needed to provide a way for SummariziginStatsReceier to output it's report upon shutdown, thus the `sys.addAddShutownHook` was added so that this example can be a little useful. Stats can be seen upon quitting this server with `control-C` or stopping it using the IDE you prefer. As an example of output, we'll observer statistics upon shutting down after a single request:
 
-Lets review some basics.  First, there is [TwitterServer]() which enables us to implement fully functionling Services complete with configuration, dependency injection, tracing, logging and more.. TwitterServer does much of the work to intercept the lifecycle of your objects, and exposes ways to get at them withthem with a simple convententional API.
-
-Our class creates a `modules` override member that we use to place a [Module]() in order to receive it's injected componenets ( like @Bean's in Spring ). We review `Modules` in depth later.  For now, we will accept that our module gives us this instance of a MyService [Service]() implementation. Because we're using a TwtiterServer class, we can access it's field members such as `injector` which I use to provide the configured `MyService` class.
-
-```scala
-class SimpleApp extends App {
-  val service = new MyService(true)
-  val server = Http.serve(":8080", service)
-
-  Await.ready(server)
-}
+```txt
+# counters
+myServer/admission_control/deadline/exceeded 0
+myServer/admission_control/deadline/rejected 0
+myServer/closes                0
+myServer/connects              1
+myServer/http/status/200       1
+myServer/http/status/2XX       1
+myServer/nacks                 0
+myServer/nonretryable_nacks    0
+myServer/read_timeout          0
+myServer/received_bytes        78
+myServer/requests              1
+myServer/sent_bytes            67
+myServer/socket_unwritable_ms  0
+myServer/socket_writable_ms    0
+myServer/success               1
+myServer/thread_usage/requests/per_thread/finagle/netty4-1 1
+myServer/write_timeout         0
+# gauges
+myServer/connections           0.0
+myServer/pending               0.0
+myServer/thread_usage/requests/mean 0.0
+myServer/thread_usage/requests/relative_stddev 0.0
+myServer/thread_usage/requests/stddev 0.0
+myServer/tls/connections       0.0
+# stats
+myServer/connection_duration   n=1 min=223.0 med=223.0 p90=223.0 p95=223.0 p99=223.0 p999=223.0 p9999=223.0 max=223.0
+myServer/connection_received_bytes n=1 min=78.0 med=78.0 p90=78.0 p95=78.0 p99=78.0 p999=78.0 p9999=78.0 max=78.0
+myServer/connection_requests   n=1 min=1.0 med=1.0 p90=1.0 p95=1.0 p99=1.0 p999=1.0 p9999=1.0 max=1.0
+myServer/connection_sent_bytes n=1 min=67.0 med=67.0 p90=67.0 p95=67.0 p99=67.0 p999=67.0 p9999=67.0 max=67.0
+myServer/handletime_us         n=1 min=7594.0 med=7594.0 p90=7594.0 p95=7594.0 p99=7594.0 p999=7594.0 p9999=7594.0 max=7594.0
+myServer/http/response_size    n=1 min=28.0 med=28.0 p90=28.0 p95=28.0 p99=28.0 p999=28.0 p9999=28.0 max=28.0
+myServer/http/time/200         n=1 min=82.0 med=82.0 p90=82.0 p95=82.0 p99=82.0 p999=82.0 p9999=82.0 max=82.0
+myServer/http/time/2XX         n=1 min=82.0 med=82.0 p90=82.0 p95=82.0 p99=82.0 p999=82.0 p9999=82.0 max=82.0
+myServer/request_latency_ms    n=1 min=29.0 med=29.0 p90=29.0 p95=29.0 p99=29.0 p999=29.0 p9999=29.0 max=29.0
+myServer/request_payload_bytes n=1 min=0.0 med=0.0 p90=0.0 p95=0.0 p99=0.0 p999=0.0 p9999=0.0 max=0.0
+myServer/response_payload_bytes n=1 min=28.0 med=28.0 p90=28.0 p95=28.0 p99=28.0 p999=28.0 p9999=28.0 max=28.0
 ```
-# unit test
 
+Console output of stats are not as useful as sending them to a real metrics server ( promethius, APM etc ) but this example shows just the complete and unfettered statistics details.
 
+### Service binding and program execution
 
-### Test with Client
+Calling one of the overloaded `serve()` methods on [Http.server](http://http-finagle-server) starts the server as configured. In this case, we simply provide a [SocketAddress](http://socket-address) or a contravariant that can produce this type of object.
+The final arugment to this method gives our service implementation which will handle any request seen by this server.
 
 ## Conclusion & Links
 
-### Finagle Introduction
+This was just a very brief overview of a powerful API. Our next mission is to provide a deeper gaze at the tooling around Finagle - Finch, Finatra, TwitterServer.
 
 * https://blog.twitter.com/engineering/en_us/a/2011/finagle-a-protocol-agnostic-rpc-system.html
 
