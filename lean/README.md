@@ -57,41 +57,9 @@ class MyService(showMinimum: Boolean) extends Service[http.Request, http.Respons
 }
 ```
 
-### Wrapping Services with Filters
-
- Filters lets us change the input and output types for a given service, wrap service logic (eg with logging) and even simplify the relationship between a services configured states through composition. Lets see what Twitter docs say about Filters:
-
-```java
- * A [[Filter]] acts as a decorator/transformer of a [[Service service]].
- * It may apply transformations to the input and output of that service:
- * {{{
- *           (*  MyService  *)
- * [ReqIn -> (ReqOut -> RepIn) -> RepOut]
- * }}}
-```
-
-Given a `Service` provides the translation between two types `ReqOut` and `ReqIn`, a `Filter` allows turn those types into new invariant types, thus `ReqIn` and `RepOut`. Filters maintain API consistency with ordinary `Service`s through [Service]() trait, with that we also get an overloaded compositional method `andThen()` that allows us to glue together filters and services.
-
-For now, we can define our example filter to execute an anonymous lambda provided by in the constructor, then proceed with servicing the request.
-
-```scala
-package example
-
-import com.twitter.finagle.{Service, SimpleFilter}
-import com.twitter.finagle.http.{Request, Response}
-import com.twitter.util.Future
-
-class ExampleFilter(myFn: Unit => Unit) extends SimpleFilter[Request, Response] {
-  override def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
-    myFn()
-    service(request)
-  }
-}
-```
-
 ## The Finagle HTTP Server
 
-Twitter/Finagle allows us to define our [Server](http://twitter-finagle-server) through the same `Req` / `Res` input/output types we defined in our Service./
+Finagle allows us to define our [Server](http://twitter-finagle-server) through the same `Req` / `Res` input/output types we defined in our Service./
 Finagle comes pre-packaged with a couple protocol-specific servers that we could use to harness our Service's functionality. We will observe Finagle [Http](http://twitter-finagle-http) server capabilities, and how to configure and start the server.
 
 In this example, our `MyService` service responds to all HTTP URI's on our localhost Server instance. The Filters we provided ensure stats are counted towards all requests, and logs produced through the [LoggingFilter](http://logging-filter) filter.
