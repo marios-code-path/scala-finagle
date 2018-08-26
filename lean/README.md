@@ -8,17 +8,17 @@ categories = ["scala","twitter","finagle"]
 tags = ["functional","scala","services","demo"]
 +++
 
-# Why Finagle
+# What is Finagle
 
-[Finagle](https://twitter.github.io/finagle/) is a Service building framework that lets developers write non-blocking services with ease. In this example, we will go through the steps to deploy a basic Finagle Service that takes advantage of the Twitter services eco-system in TwitterServer, Guice and of coure Scala.
+[Finagle](https://twitter.github.io/finagle/) is an extensible [RPC](https://en.wikipedia.org/wiki/Remote_procedure_call) system for the JVM, that lets developers write non-blocking, high-concurrency services with ease. Much of what Finagle will let us do is explained in the [doc](https://twitter.github.io/finagle/).
 
-## JVM Functions in Scala
+> Finagle implements uniform client and server APIs for several protocols, and is designed for high performance and concurrency. Most of Finagle’s code is protocol agnostic, simplifying the implementation of new protocols.
 
-Finagle is written in Scala, and works best in applications - scala or java - that want to take the [functional services](https://monkey.org/~marius/funsrv.pdf) approach. You can prefer to choose ordinary Java or some other JVM language.
+In this example, we will go through the steps to deploy a basic Finagle HTTP Service with [Scala](https://www.scala-lang.org/) and [SBT](https://www.scala-sbt.org/).
 
 ## Build Dependencies
 
-We will highlight two important building blocks for our program. First Lets examine this  [SBT](https://www.scala-sbt.org/) build for the dependencies used in this example.
+First, Lets examine this [SBT](https://www.scala-sbt.org/) build for the dependencies used in this example. We only need to include "finagle-http" dependency at version 18. This is using [Finagle 6](https://twitter.github.io/finagle/guide/changelog.html).
 
 ```c
 name := "example-service"
@@ -67,7 +67,7 @@ class MyService extends Service[http.Request, http.Response] {
 Finagle allows us to define our listening [Server](https://twitter.github.io/finagle/docs/com/twitter/finagle/server/index.html) with the same `Req` / `Res` types we defined in our Service.
 Finagle comes pre-packaged with a couple protocol-specific servers that we could use to harness our Service's functionality. We will observe Finagle [Http](https://twitter.github.io/finagle/guide/Quickstart.html) server capabilities, and use it to expose our Service.
 
-In this example, our Server will not not know about routing specifics. Of course this means that as configured, our server will respond to all HTTP URI's on port 8080. This may make sense in a proxy-routed service environment. Of course, this is a very lean example, and as such we'll take no turns in standing up a simple listening HTTP server.
+In this example, our Server will not not know about routing specifics. Of course this means that as configured, our server will respond to all HTTP URI's on port 8080. This may make sense in a proxy-routed service environment. Of course, this is a very lean example, and as such we'll take no corners in standing up a simple listening HTTP server.
 
 ```scala
 package example
