@@ -4,9 +4,9 @@ import com.twitter.finagle.http.{Response, Status}
 import com.twitter.finagle.{Service, http}
 import com.twitter.util.Future
 
-object MinService extends MinService
+object MinService extends MinHttpService
 
-class MinService extends Service[http.Request, http.Response] {
+class MinHttpService extends Service[http.Request, http.Response] {
 
   val seed = Seq(76, 69, 71, 48, 83, 42)
 
@@ -23,5 +23,4 @@ class MinService extends Service[http.Request, http.Response] {
       response
     )
   }
-
 }
