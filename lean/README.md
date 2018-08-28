@@ -10,7 +10,7 @@ tags = ["functional","scala","services","demo"]
 
 # What is Finagle
 
-[Finagle](https://twitter.github.io/finagle/) is an extensible [RPC](https://en.wikipedia.org/wiki/Remote_procedure_call) system for the JVM, that lets developers write non-blocking, high-concurrency services with ease. Much of what Finagle will let us do is explained in the [doc](https://twitter.github.io/finagle/).
+[Finagle](https://twitter.github.io/finagle/) is an extensible [RPC](https://en.wikipedia.org/wiki/Remote_procedure_call) system for the JVM, that lets developers write non-blocking, high-concurrency services with ease. Much of what Finagle will let us do is summarized in the [doc](https://twitter.github.io/finagle/).
 
 > Finagle implements uniform client and server APIs for several protocols, and is designed for high performance and concurrency. Most of Finagle’s code is protocol agnostic, simplifying the implementation of new protocols.
 
