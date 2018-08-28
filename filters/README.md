@@ -71,7 +71,7 @@ class SampleService extends Service[http.Request, http.Response] {
  * }}}
 ```
 
-Given a `Service` provides the translation between two types `ReqOut` and `ReqIn`, a `Filter` allows turn those types into new invariant types, thus `ReqIn` and `RepOut`. Filters maintain API consistency with ordinary `Service`s through [Service](https://twitter.github.io/finagle/docs/com/twitter/finagle/Service.html) trait, with that we also get an overloaded compositional method [andThen()](https://twitter.github.io/finagle/docs/com/twitter/finagle/Service.html#close():com.twitter.util.Future[Unit]) that allows us to glue together filters and services.
+Given a `Service` provides the translation between two types `ReqOut` and `ReqIn`, a `Filter` allows turn those types into new types, thus `ReqIn` and `RepOut`. Filters maintain API consistency with ordinary `Service`s through [Service](https://twitter.github.io/finagle/docs/com/twitter/finagle/Service.html) trait, with that we also get an overloaded compositional method [andThen()](https://twitter.github.io/finagle/docs/com/twitter/finagle/Service.html#close():com.twitter.util.Future[Unit]) that allows us to glue together filters and services.
 
 To visualize what this means, lets take a look at the good docs: ![Filter Viualization](https://twitter.github.io/finagle/guide/_images/filter2.png)
 
