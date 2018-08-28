@@ -143,42 +143,9 @@ Aug 27, 2018 5:14:18 PM com.twitter.finagle.filter.LoggingFilter log
 INFO: 0:0:0:0:0:0:0:1 - - [28/Aug/2018:00:14:18 +0000] "GET /?next=42 HTTP/1.1" 200 28 3 "curl/7.54.0"\
 ```
 
-## Customizing your Filter
-
-If the existing filter does not give enough infomration how Filters can be created, and we usually want some kind of custom behaviour. So lets examine what a custom filter looks like. Lets set one up by extending [SimpleFilter](https://twitter.github.io/finagle/docs/com/twitter/finagle/SimpleFilter.html) and supplying the `apply()` method. This example will simply execute an anonymous function (lambda) before completing the http request/response.
-
-```scala
-class SampleFilter(val myFn: Unit => Unit) extends SimpleFilter[Request, Response] {
-  override def apply(request: Request, service: Service[Request, Response]): Future[Response] = {
-    myFn()
-    service(request)
-  }
-}
-```
-
-Now that we have our custom filter, lets compose our improved service with some logic. Back to our SampleApp, we can initialize the service with our filter and a simple and conveneint lambda.
-
-```scala
-object SampleApp extends App {
-  val service: Service[Request, Response] = MyLoggingFilter
-    .andThen(new SampleFilter(req => Logger().info(s"Request path: ${req.path}")))
-    .andThen(SampleService)
-
-```
-
-Now when we access our service via `curl`, we should see output on our server's log similar to the following:
-
-```s
-Aug 27, 2018 9:03:18 PM example.SampleApp$ $anonfun$service$1
-INFO: Request path: /fizzfoo
-Aug 27, 2018 9:03:18 PM com.twitter.finagle.filter.LoggingFilter log
-INFO: 0:0:0:0:0:0:0:1 - - [28/Aug/2018:04:03:18 +0000] "GET /fizzfoo HTTP/1.1" 200 28 19 "curl/7.54.0"
-
-```
-
 ## Conclusion & Links
 
-This was just a very brief overview of how Filters assist in composing our Services API. Lets just check out a few more topical bits that we might use in the future projects.
+This was just a very brief overview of how Filters assist in composing our Services API. 
 
 * https://blog.twitter.com/engineering/en_us/a/2011/finagle-a-protocol-agnostic-rpc-system.html
 

@@ -14,7 +14,10 @@ object MyLoggingFilter
   }, new CommonLogFormatter)
 
 object SampleApp extends App {
-  val service: Service[Request, Response] = MyLoggingFilter.andThen(SampleService)
+  val service: Service[Request, Response] = MyLoggingFilter
+    .andThen(new SampleFilter(req => Logger().info(s"Request path: ${req.path}")))
+    .andThen(SampleService)
+
 
   val server = Http.server
     .withRequestTimeout(Duration.fromSeconds(30))
