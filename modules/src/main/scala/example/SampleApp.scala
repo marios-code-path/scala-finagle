@@ -3,7 +3,7 @@ package example
 import com.twitter.finagle.Http
 import com.twitter.inject.server.TwitterServer
 
-class SampleApp
+object SampleApp
   extends TwitterServer {
   override val modules = Seq(SampleModule)
 
