@@ -1,8 +1,7 @@
-package Example
+package example
 
 import com.twitter.finagle.Http
 import com.twitter.inject.server.TwitterServer
-import example.{SampleModule, SampleService}
 
 class SampleApp
   extends TwitterServer {
