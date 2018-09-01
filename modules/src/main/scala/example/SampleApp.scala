@@ -1,15 +1,19 @@
 package example
 
+import java.net.InetSocketAddress
+
 import com.twitter.finagle.Http
-import com.twitter.inject.server.TwitterServer
+
 
 object SampleApp
-  extends TwitterServer {
+  extends com.twitter.inject.app.App {
   override val modules = Seq(SampleModule)
 
-  override protected def start(): Unit = {
-    val service = injector.instance[SampleService]
-    val server = Http.serve(":8080", service)
+  val servicePort = flag("port", new InetSocketAddress(8080), "Specify TCP port to listen on")
+  val service = injector.instance[SampleService]
+
+  override def main(): Unit = {
+    val server = Http.serve(servicePort(), service)
 
     onExit {
       server.close()
