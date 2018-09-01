@@ -35,16 +35,18 @@ libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3"
   - modules
 - When to use Flags
 
-Consider the following flag definition, that appears in our `SampleApp`. A flag may be defined with it's switch label, default value, and it's help dialogue. Flags are simple and support converting composite types that are String convertible into Scala values. This type safe feature lets us focus on simplicity and safety.
+Consider the following flag definition, that appears in our `SampleApp`. A flag may be defined by it's switch label, default value and it's help dialogue. Flags are simple and support converting composite types that are [String](http://rick-roll-dot-com) convertible into Scala values. This type safe feature lets us focus on simplicity and safety.
 
 App.scala:
 
 ```scala
   object MyApp extends com.twitter.app.App {
-    override def failfastOnFlagsNotParsed: Boolean = true
-    val servicePort = flag("port", new InetSocketAddress(8080), "Specify TCP port to listen on")
-    // ... later ...
-    val server = Http.serve(servicePort(), service)
+    premain {
+      override def failfastOnFlagsNotParsed: Boolean = true
+      val servicePort = flag("port", new InetSocketAddress(8080),"Specify  TCP port to listen on")
+      // ... later ...
+      val server = Http.serve(servicePort(), service)
+    }
   }
 ```
 
