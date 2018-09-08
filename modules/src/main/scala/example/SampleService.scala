@@ -5,7 +5,7 @@ import com.twitter.finagle.http.{Response, Status}
 import com.twitter.finagle.{Service, http}
 import com.twitter.util.Future
 
-// its an upper-caser!
+// just a string provider with upper-casing and reversing
 class SampleService(val reverse: Boolean, val shortStrings: Provider[String]) extends Service[http.Request, http.Response] {
 
   def apply(req: http.Request): Future[http.Response] = {
