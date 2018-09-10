@@ -1,8 +1,8 @@
 +++
 date = 2018-09-07
 publishDate = 2018-09-07
-title = "Finagle Modules"
-description = "Modules help define service behaviour"
+title = "Service Modularity in the Finagle Framework"
+description = "Using Modules to compose services."
 toc = true
 categories = ["scala","twitter","finagle", "modules"]
 tags = ["functional", "scala", "services", "filter", "modules", "guice", "dependency-injection", "di"]
@@ -10,30 +10,32 @@ tags = ["functional", "scala", "services", "filter", "modules", "guice", "depend
 
 # Motivation
 
-Building applications by glueing resources together the manual way is daunting. Not impossible, but daunting. Lazy resource loading aka Dependency Injection (DI) can make your application more resilient to changes, and bring additional configurability to your project.
+Typical examples of dependency Injection [DI](https://stackoverflow.com/questions/130794/what-is-dependency-injection) show that the decoupling gained from removing glue code provides better testability, separation of concerns, and readability. Building applications by glueing resources together the manual way is OK, but not preferred when services need to be adapted in many ways. Dependency Injection (DI) can make your application more resilient to changes, and bring additional configurability to your project.
 
-In this example, we will tackle managing server functionality using a few common twitter-module support guidelines.
+Finagle, uses the Guice library as it's foundation for building modules. In this example, we will tackle managing server functionality using a few key module-writing guidelines. We will tackle:
+
+* Service composition
+* Module composition
+* Command-line flags composition 
 
 # The Service
 
-Lets define the meat of our sample which is a service that will answer our requests. This service simply returns a random string prefixed by the letter `T` , or a reversed random string with that prefix.  The constructor arguments are what we will use to highlight configuration with modules.
+Lets define the meat of our sample which is a service that will answer our requests. This service will repeat or reverse values sent by the HTTP param `"name"`. If no parameter is there, then a random string will be generated and the ensuing effects will remain the same. Thus, our service can be summarized by the function `f(string) = (string || "T"+random).upper.reverse`. In this example, we'll use the service's dependecy on toggling reversing capability, and string generation to highlight modules/component cohesion.
 
 ```scala
 package example
 
-import com.google.inject.Provider
 import com.twitter.finagle.http.{Response, Status}
 import com.twitter.finagle.{Service, http}
 import com.twitter.util.Future
 
-// just a string provider with upper-casing and reversing
-class SampleService(val reverse: Boolean, val shortStrings: Provider[String]) extends Service[http.Request, http.Response] {
-
+class SampleService(isReversing: Boolean,
+                    stringMaker: StringMaker) extends Service[http.Request, http.Response] {
   def apply(req: http.Request): Future[http.Response] = {
     val response = Response(req.version, Status.Ok)
-    val sample = req.getParam("name", shortStrings.get).toUpperCase()
+    val sample = req.getParam("name", stringMaker()).toUpperCase()
 
-    response.setContentString(if (!reverse) sample else sample.reverse)
+    response.setContentString(if (!isReversing) sample else sample.reverse)
 
     Future.value(
       response
@@ -42,19 +44,20 @@ class SampleService(val reverse: Boolean, val shortStrings: Provider[String]) ex
 }
 ```
 
-Thus, we can simply bake in an instance of this service by declaring it with `new` keyword.
+This HTTP service needs to know if it will reverse string, and how to make new strings (when neecessary).
+Actually, a common Dependency Injection contrast scenario shows how we can simply bake in an instance of this service by declaring it with `new` keyword.
 
 ```scala
-val service = new SampleService(false, "T" + RandomStringUtils.randomAlphabetic(8))
+val service = new SampleService(false, _ => "T" + RandomStringUtils.randomAlphabetic(8))
 ```
 
-But this will make testing harder, and locks our service into a specific behaviour.  Lets take a look at customizing the service instantiation with modules.
+But this will make testing harder, and locks our service into a specific behaviour among other side-effects.  Lets take a look at building the service instance with our own module instaed.
 
 # Declaring a Module
 
-Modules can use [JSR-330 annotations](https://github.com/google/guice/wiki/JSR330) as a way of declaring dependency metadata. We simply provide the implementation and instance scope we will need for our specific services. Additionally, this module bundles it's own flag. Its a scoping mechanism we can use to isolate specific feature flags per module.
+Similar to popular DI frameworks like Spring and Dagger, Guice resources may be declared with [JSR-330 annotations](https://github.com/google/guice/wiki/JSR330) annotation metadata. Guice modules go a step further by packaging specific resources together. This way, we can create the right resources when we need them. For example, a Production-module vs Stage-module.
 
-In order to take full advantage of scala/guice, you must extend the base class [com.twitter.inject.TwitterModule](https://github.com/twitter/finatra/blob/develop/inject/inject-core/src/main/scala/com/twitter/inject/TwitterModule.scala). This enables us to compose additioanl modules into our custom module. The canonical way to install modules with Finagle apps is to use the `override modules: Seq[Module]` construct to tell Guice which modules we will expect to have loaded. We will use this convention when we get to our app.  
+In order to take full advantage of Guice, you must extend the base class [com.twitter.inject.TwitterModule](https://github.com/twitter/finatra/blob/develop/inject/inject-core/src/main/scala/com/twitter/inject/TwitterModule.scala). This enables us to compose additional modules into our custom module. The canonical way to install modules with Finagle apps (and other modules) is to use the `override modules: Seq[Module]` construct to tell Guice which modules we will expect to have loaded. We will use this convention when we get to our app.
 
 SampleModule.scala:
 
@@ -62,22 +65,26 @@ SampleModule.scala:
 package example
 
 import com.google.inject.{Provider, Provides, Singleton}
-import com.twitter.inject.TwitterModule
+import com.twitter.inject.{Logging, TwitterModule}
 import org.apache.commons.lang.RandomStringUtils
 
-object SampleModule extends TwitterModule {
+trait StringMaker extends (Unit => String)
+
+object SampleModule extends TwitterModule with Logging {
   val flagReverse = flag("reverse", false, "Reverses the string.")
 
   @Provides
-  def providesRandomString: String = "T" + RandomStringUtils.randomAlphabetic(8)
+  def providesRandomString: StringMaker = _ => "T" + RandomStringUtils.randomAlphabetic(8)
 
   @Singleton
   @Provides
-  def providesSampleService(prov: Provider[String]): SampleService = new SampleService(flagReverse.apply(), prov)
+  def providesSampleService(prov: Provider[StringMaker]): SampleService = new SampleService(flagReverse.apply(), prov)
 }
 ```
 
-This module simply exports a command-line flag, a random string generator, and finally exposes our Service as singleton dependencies for our app.
+In this example, note that that we used the `Provider` interface for accessing our random string maker. Guices use the [Provider](https://github.com/google/guice/wiki/InjectingProviders) mechanism to instantiate and send resource instances. It also is what backs our `@Provider` annotated methods. This allows the developer to specify some additional creation logic that would ordinarily become a business detail. Alternatively, we could issue the direct type expected at constuction time, however that would have the effect of eliminating said lifecycle variability. 
+
+Whats more, is the use of `@Singleton` scope. Basically, like other DI frameworks, this makes a single instance of our resource.
 
 ## Configuring the App with modules
 
@@ -112,6 +119,8 @@ object SampleApp
 ```
 
 This app simply declares our single `SampleModule` dependency, which will provide all of the necessary injectable components needed to furnish our sample service. Because flags must be created in the constructor, and read after `main()`, we use the `postmain` lifecycle hook to do all our heavy service lifting.
+
+Obtaining an injected instance of any bean from our App main is simple using the provided [injector]() instance given in `com.twitter.inject.app.App`. Our sample makes use of it to fetch the Service resource that we bundled in the `SampleModule`.
 
 # Build and Execute with SBT
 
